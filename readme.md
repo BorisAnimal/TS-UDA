@@ -11,12 +11,17 @@
 │      │  ├── Hips_Motion.txt
 │      │  ├── Label.txt
 │      │  └── Torso_Motion.txt
-│      └── 260617
-│          ├── Hand_Motion.txt
-│          ├── Hips_Motion.txt
-│          ├── Label.txt
-│          └── Torso_Motion.txt
+│      ├── 260617
+│      │   ├── Hand_Motion.txt
+│      │   ├── Hips_Motion.txt
+│      │   ├── Label.txt
+│      │   └── Torso_Motion.txt
 │      ├── ...
 ```
 
 2. run ``` shl_processing.py ```
+
+3. check with
+```
+    python dataloader.py
+```
