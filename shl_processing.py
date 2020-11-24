@@ -123,6 +123,9 @@ if __name__ == '__main__':
             loop.set_description("Splitting")
             Xw, Yw = windows_split(X.values, Y.values, 500, 250)
 
+            # 5.5. Change shape to (len, channels, measures)
+            Xw = Xw.transpose(0, 2, 1)
+
             # 6. save windows
             loop.set_description("Saving")
             dst_dir = join('./data/shl', d[-6:])

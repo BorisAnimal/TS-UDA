@@ -1,11 +1,6 @@
-import os
-import pickle
-import urllib
-
 import numpy as np
 import torch
 import torch.utils.data as data
-from torchvision import transforms
 
 
 class SHL(data.Dataset):
@@ -34,6 +29,7 @@ if __name__ == '__main__':
 
     a = source[0]
     b = source[1]
+    print(a[0].shape)
     assert a[0].shape == b[0].shape
 
     # Try dataloader
@@ -48,7 +44,7 @@ if __name__ == '__main__':
                                                     num_workers=0)
 
     a, aa = next(iter(source_dataloader))
-    print(a.shape, aa.shape)  # torch.Size([16, 500, 9]) torch.Size([16, 1])
+    print(a.shape, aa.shape)  # torch.Size([16, 9, 500]) torch.Size([16, 1])
     b, bb = next(iter(target_dataloader))
     assert a.shape == b.shape
     assert aa.shape == bb.shape
