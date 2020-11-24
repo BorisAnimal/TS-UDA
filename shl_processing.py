@@ -13,6 +13,8 @@ grav_y grav_z lin_acc_x lin_acc_y lin_acc_z pressure ignore ignore""".split()
 
 label_columns = ["Coarse", "Fine", "Road", "Traffic", "Tunnels", "Social", "Food"]
 
+coarse_label_mapping = "Null Still Walking Run Bike Car Bus Train Subway".split()
+
 label_column = "Coarse"
 
 
