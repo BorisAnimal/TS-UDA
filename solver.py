@@ -5,8 +5,13 @@ from torch import optim
 from torch.autograd import Variable
 from functools import reduce
 
+import seaborn as sn
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
+
 import shl_processing
-from dataloader import shl_loaders, SHL
+from dataloader import shl_loaders
 from models import Encoder, Classifier
 
 
@@ -19,13 +24,13 @@ def accuracy(predicted_labels, true_labels):
 
 class Solver:
     def __init__(self):
-        self.train_lr = 1e-5
+        self.train_lr = 1e-4
         self.num_classes = 9
         self.clf_target = Classifier().cuda()
         self.clf2 = Classifier().cuda()
         self.clf1 = Classifier().cuda()
         self.encoder = Encoder().cuda()
-        self.pretrain_lr = 1e-5
+        self.pretrain_lr = 1e-4
         self.weights_coef = 1e-3
 
     def to_var(self, x):
@@ -50,12 +55,9 @@ class Solver:
             lw = torch.matmul(solver.clf1.fc1.weight, solver.clf2.fc1.weight.T).abs().sum().mean()
             loss += weights_coef * lw
 
-        return loss  # + lw
+        return loss
 
     def pretrain(self, source_loader, target_val_loader, pretrain_epochs=1):
-        """
-        TODO: add select max acc logic in code
-        """
         source_iter = iter(source_loader)
         source_per_epoch = len(source_iter)
         print("source_per_epoch:", source_per_epoch)
@@ -68,6 +70,7 @@ class Solver:
                         map(lambda i: list(i.parameters()),
                             [self.encoder, self.clf1, self.clf2, self.clf_target]))
         pretrain_optimizer = optim.Adam(params, lr)
+        accuracies = []
 
         for step in range(pretrain_iters + 1):
             # ============ Initialization ============#
@@ -102,14 +105,14 @@ class Solver:
                     c_source2 = self.clf2(source_val_features)
                     c_target = self.clf_target(source_val_features)
                     print("Train data (source) scores:")
-                    print("Step %d | Source clf1=%.2f, clf2=%.2f | Target clf_t=%.2f" \
+                    print("Step %d | Source clf1=%.2f, clf2=%.2f | Source data clf_t=%.2f" \
                           % (step,
                              accuracy(c_source1, s_labels),
                              accuracy(c_source2, s_labels),
                              accuracy(c_target, s_labels))
                           )
                     acc = self.eval(target_val_loader, self.clf_target)
-                    print("Val data acc=%.2f" % acc)
+                    print("Val target data acc=%.2f" % acc)
                     print()
 
     def pseudo_labeling(self, loader, pool_size=4000, threshold=0.9):
@@ -158,6 +161,11 @@ class Solver:
         optimizer1 = optim.Adam(params1, lr)
         optimizer2 = optim.Adam(params2, lr)
 
+        # ad-hoc
+        acs1 = []
+        acs2 = []
+        acs3 = []
+
         for epoch in range(epochs):
             source_iter = iter(source_loader)
             target_iter = iter(target_loader)
@@ -166,14 +174,28 @@ class Solver:
             target_per_epoch = len(target_iter)
             if epoch == 0:
                 print("source_per_epoch, target_per_epoch:", source_per_epoch, target_per_epoch)
+            if epoch == 3:
+                for param_group in optimizer1.param_groups:
+                    param_group['lr'] = lr * 0.1
 
+                for param_group in optimizer2.param_groups:
+                    param_group['lr'] = lr * 0.1
+            if epoch == 6:
+                for param_group in optimizer1.param_groups:
+                    param_group['lr'] = lr * 0.01
+
+                for param_group in optimizer2.param_groups:
+                    param_group['lr'] = lr * 0.01
+
+            # ============ Pseudo-labeling  ============ #
             # Fill candidates
-            target_candidates = self.pseudo_labeling(target_loader)
+            target_candidates = self.pseudo_labeling(target_loader, pool_size=4000 * epoch)
             print("Target candidates len:", len(target_candidates))
-            if len(target_candidates) == 0:
+            if len(target_candidates) <= 1:
                 target_candidates = self.pseudo_labeling(target_loader, threshold=0.0)
                 print("Target candidates len:", len(target_candidates))
-            target_candidates_loader = self.wrap_to_loader(target_candidates)
+            target_candidates_loader = self.wrap_to_loader(target_candidates,
+                                                           batch_size=target_loader.batch_size)
             for step, (target, t_labels) in enumerate(target_candidates_loader):
                 if (step + 1) % source_per_epoch == 0:
                     source_iter = iter(source_loader)
@@ -187,18 +209,18 @@ class Solver:
                 # Source data
                 # forward
                 features = self.encoder(source)
-                y1_hat = self.clf1(features)
-                y2_hat = self.clf2(features)
+                y1s_hat = self.clf1(features)
+                y2s_hat = self.clf2(features)
                 # loss
-                loss_source_class = self.loss([y1_hat, y2_hat], s_labels, weights_coef=self.weights_coef)
+                loss_source_class = self.loss([y1s_hat, y2s_hat], s_labels, weights_coef=self.weights_coef)
 
                 # Target data
                 # forward
                 features = self.encoder(target)
-                y1_hat = self.clf1(features)
-                y2_hat = self.clf2(features)
+                y1t_hat = self.clf1(features)
+                y2t_hat = self.clf2(features)
                 # loss
-                loss_target_class = self.loss([y1_hat, y2_hat], t_labels, weights_coef=self.weights_coef)
+                loss_target_class = self.loss([y1t_hat, y2t_hat], t_labels, weights_coef=self.weights_coef)
                 # one step
                 (loss_source_class + loss_target_class).backward()
                 optimizer1.step()
@@ -217,13 +239,23 @@ class Solver:
                 optimizer2.zero_grad()
 
                 # ============ Validation ============ #
+                acs1.append(accuracy(y1s_hat, s_labels).item())
+                acs2.append(accuracy(y2s_hat, s_labels).item())
+                acs3.append(accuracy(y_target_hat, t_labels).item())
+
                 if (step + 1) % log_pre == 0:
                     acc = self.eval(target_val_loader, self.clf_target)
                     print("Step %d | Val data target classifier acc=%.2f" % (step, acc))
-                    acc1 = self.eval(source_val_loader, self.clf1)
-                    print("        | Val data source classifier1 acc=%.2f" % acc1)
-                    acc2 = self.eval(source_val_loader, self.clf2)
-                    print("        | Val data source classifier2 acc=%.2f" % acc2)
+                    print("          Train accuracy clf1=%.2f, clf2=%.2f, clf_t=%.2f" %
+                          (np.mean(acs1), np.mean(acs2), np.mean(acs3)))
+                    acs1 = []
+                    acs2 = []
+                    acs3 = []
+
+                    # acc1 = self.eval(source_val_loader, self.clf1)
+                    # print("        | Val data source classifier1 acc=%.2f" % acc1)
+                    # acc2 = self.eval(source_val_loader, self.clf2)
+                    # print("        | Val data source classifier2 acc=%.2f" % acc2)
                     print()
 
     def save_models(self):
@@ -278,7 +310,7 @@ class Solver:
 
         return 100. * np.sum(class_correct) / np.sum(class_total)
 
-    def wrap_to_loader(self, target_candidates):
+    def wrap_to_loader(self, target_candidates, batch_size):
         """
         :param target_candidates: [(x,y_pseudo)]
         :return:
@@ -286,24 +318,38 @@ class Solver:
         assert len(target_candidates) > 0
         tmp = target_candidates  # CondomDataset(target_candidates)
         return torch.utils.data.DataLoader(dataset=tmp,
-                                           batch_size=32,
+                                           batch_size=batch_size,
                                            shuffle=True,
                                            num_workers=0)
 
+    def confusion_matrix(self, loader, classifier):
 
-# class CondomDataset(torch.utils.data.Dataset):
-#     def __init__(self, data):
-#         self.data = data
-#
-#     def __len__(self):
-#         return len(self.data)
-#
-#     def __getitem__(self, item):
-#         return self.data[item]
+        labels = []
+        preds = []
+        for x, y_true in loader:
+            labels += list(y_true.cpu().detach().numpy().flatten())
+            x, y_true = self.to_var(x), self.to_var(y_true).long().squeeze()
 
+            y_hat = classifier(self.encoder(x))
+            _, pred = torch.max(y_hat, 1)
+
+            preds += list(pred.cpu().detach().numpy().flatten())
+
+        cm = confusion_matrix(labels, preds)
+
+        df_cm = pd.DataFrame(cm, index=coarse_label_mapping,
+                             columns=coarse_label_mapping, dtype=np.int)
+        plt.figure(figsize=(10, 7))
+        sn.heatmap(df_cm, annot=True)
+
+        plt.show()
+
+
+coarse_label_mapping = "Null Still Walking Run Bike Car Bus Train Subway".split()
 
 if __name__ == '__main__':
-    source_train_loader, source_val_loader, target_train_loader, target_val_loader = shl_loaders()
+    source_train_loader, source_val_loader, target_train_loader, target_val_loader = shl_loaders(0.8, 64)
+    # target_train_loader, target_val_loader, source_train_loader, source_val_loader = shl_loaders(0.8, 64)
 
     solver = Solver()
     solver.pretrain(source_loader=source_train_loader,
@@ -311,12 +357,22 @@ if __name__ == '__main__':
                     pretrain_epochs=10)
     solver.save_models()
 
+    solver.confusion_matrix(target_val_loader, solver.clf_target)
+
     solver.load_models()
+
     print("Accuracy before UDA:")
-    print(solver.eval(target_val_loader, solver.clf_target))
+    print("clf_t", solver.eval(target_val_loader, solver.clf_target))
+
+    print("clf1", solver.eval(source_val_loader, solver.clf1))
+
+    print("clf2", solver.eval(source_val_loader, solver.clf2))
+
     solver.train(source_train_loader,
                  source_val_loader,
                  target_train_loader,
-                 target_val_loader, epochs=10)
+                 target_val_loader, epochs=20)
     print("Final accuracy:")
     print(solver.eval(target_val_loader, solver.clf_target))
+
+    solver.confusion_matrix(target_val_loader, solver.clf_target)

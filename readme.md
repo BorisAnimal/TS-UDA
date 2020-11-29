@@ -8,27 +8,30 @@ Download from http://www.shl-dataset.org/download/
 as *source* domain data
 
 1. place data like
+    ```
+    ├── data
+    │  └── raw
+    │      ├── 220617
+    │      │  ├── Hand_Motion.txt
+    │      │  ├── Hips_Motion.txt
+    │      │  ├── Label.txt
+    │      │  └── Torso_Motion.txt
+    │      ├── 260617
+    │      │   ├── Hand_Motion.txt
+    │      │   ├── Hips_Motion.txt
+    │      │   ├── Label.txt
+    │      │   └── Torso_Motion.txt
+    │      ├── ...
+    ```
 
-```
-.
-├── data
-│  └── raw
-│      ├── 220617
-│      │  ├── Hand_Motion.txt
-│      │  ├── Hips_Motion.txt
-│      │  ├── Label.txt
-│      │  └── Torso_Motion.txt
-│      ├── 260617
-│      │   ├── Hand_Motion.txt
-│      │   ├── Hips_Motion.txt
-│      │   ├── Label.txt
-│      │   └── Torso_Motion.txt
-│      ├── ...
-```
-
-2. run ``` shl_processing.py ```
+2. run ``` shl_processing.py ``` with relevant paths
 
 3. check with
+    ```
+        python dataloader.py
+    ```
+   
+## Training
 ```
-    python dataloader.py
+python sovler.py
 ```

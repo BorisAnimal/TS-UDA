@@ -71,71 +71,70 @@ def windows_split(x, y, window_size=500, step=250, flatten=False):
             else:
                 xw.append(window)
             yw.append(label)
-    # print(np.array(xw).shape, np.array(yw).reshape(-1, 1).shape)
     xw = np.array(xw)
     yw = np.array(yw).reshape(-1, 1)
     return xw, yw
 
 
-# if __name__ == '__main__':
-#     # 1. read folders "220617", "260617", ...
-#     # loop = tqdm(glob('./data/raw/*'))
-#     # loop = tqdm(glob('F:/datasets/shl/shl-3users/*'))
-#     loop = tqdm(list(glob('F:/datasets/shl_user1_hips/user1/*')))
-#     for d in loop:
-#         y_file = "Label.txt"
-#         # modes = ["Hand_Motion.txt", "Torso_Motion.txt"]
-#         modes = ["Hips_Motion.txt"]
-#         for x_file in modes:
-#             #     Load X, Y
-#             loop.set_description("Loading")
-#             X_path, Y_path = join(d, x_file), join(d, y_file)
-#             # X = pd.DataFrame(np.loadtxt(X_path), columns=["Time(ms)"] + feature_columns)
-#             X = pd.read_csv(X_path, sep=' ', header=None, names=["Time(ms)"] + feature_columns)
-#             X.set_index(pd.to_datetime(X['Time(ms)'], unit='ms'), inplace=True)
-#
-#             # 3. select columns
-#             X = X.iloc[:, 1:10]  # Only [acc_x acc_y acc_z gyr_x gyr_y gyr_z mag_x mag_y mag_z] columns
-#             X_col = list(X.columns)
-#             # Y = pd.DataFrame(np.loadtxt(Y_path), columns=["Time(ms)"] + label_columns)
-#             Y = pd.read_csv(Y_path, sep=' ', header=None, names=["Time(ms)"] + label_columns)
-#             Y.set_index(pd.to_datetime(Y['Time(ms)'], unit='ms'), inplace=True)
-#             #     Y = to_categorical(data['Fine'], num_classes=len(labels))
-#
-#             assert (X.shape[0] == Y.shape[0])
-#
-#             Y = pd.DataFrame(Y[label_column])
-#             data = pd.concat([X, Y], join='inner', axis=1)
-#
-#             # 7. Set desired frequency 100 -> 50 (Hz)
-#             data = data.iloc[::2]
-#
-#             # 2. drop nan data
-#             data.dropna(inplace=True)
-#             X, Y = data[X_col], data[[label_column]]
-#
-#             # 4. normalize data
-#             loop.set_description("Normalization")
-#             X_mean = X.mean(axis=0)  # .reshape(-1,1)
-#             X_std = X.std(axis=0)  # .reshape(-1,1)
-#             X_min = X.min(axis=0)  # .reshape(-1,1)
-#             X_max = X.max(axis=0)  # .reshape(-1,1)
-#
-#             # Rescaling (min-max normalization)
-#             X = (X - X_min) / (X_max - X_min)
-#             X = X * 2 - 1
-#
-#             # 5. split on windows according to Label.txt
-#             loop.set_description("Splitting")
-#             Xw, Yw = windows_split(X.values, Y.values, 500, 250)
-#
-#             # 5.5. Change shape to (len, channels, measures)
-#             Xw = Xw.transpose(0, 2, 1)
-#
-#             # 6. save windows
-#             loop.set_description("Saving")
-#             dst_dir = join('./data/shl', d[-6:])
-#             if not os.path.exists(dst_dir):
-#                 os.makedirs(dst_dir)
-#             np.save(join(dst_dir, x_file.split(".")[0] + ".npy"), Xw)
-#             np.save(join(dst_dir, x_file.split(".")[0] + "_labels.npy"), Yw)
+if __name__ == '__main__':
+    # 1. read folders "220617", "260617", ...
+    # loop = tqdm(glob('./data/raw/*'))
+    # loop = tqdm(glob('F:/datasets/shl/shl-3users/*'))
+    loop = tqdm(list(glob('F:/datasets/shl_user1_hips/user1/*')))
+    for d in loop:
+        y_file = "Label.txt"
+        # modes = ["Hand_Motion.txt", "Torso_Motion.txt"]
+        modes = ["Hips_Motion.txt"]
+        for x_file in modes:
+            #     Load X, Y
+            loop.set_description("Loading")
+            X_path, Y_path = join(d, x_file), join(d, y_file)
+            # X = pd.DataFrame(np.loadtxt(X_path), columns=["Time(ms)"] + feature_columns)
+            X = pd.read_csv(X_path, sep=' ', header=None, names=["Time(ms)"] + feature_columns)
+            X.set_index(pd.to_datetime(X['Time(ms)'], unit='ms'), inplace=True)
+
+            # 3. select columns
+            X = X.iloc[:, 1:10]  # Only [acc_x acc_y acc_z gyr_x gyr_y gyr_z mag_x mag_y mag_z] columns
+            X_col = list(X.columns)
+            # Y = pd.DataFrame(np.loadtxt(Y_path), columns=["Time(ms)"] + label_columns)
+            Y = pd.read_csv(Y_path, sep=' ', header=None, names=["Time(ms)"] + label_columns)
+            Y.set_index(pd.to_datetime(Y['Time(ms)'], unit='ms'), inplace=True)
+            #     Y = to_categorical(data['Fine'], num_classes=len(labels))
+
+            assert (X.shape[0] == Y.shape[0])
+
+            Y = pd.DataFrame(Y[label_column])
+            data = pd.concat([X, Y], join='inner', axis=1)
+
+            # 7. Set desired frequency 100 -> 50 (Hz)
+            data = data.iloc[::2]
+
+            # 2. drop nan data
+            data.dropna(inplace=True)
+            X, Y = data[X_col], data[[label_column]]
+
+            # 4. normalize data
+            loop.set_description("Normalization")
+            X_mean = X.mean(axis=0)  # .reshape(-1,1)
+            X_std = X.std(axis=0)  # .reshape(-1,1)
+            X_min = X.min(axis=0)  # .reshape(-1,1)
+            X_max = X.max(axis=0)  # .reshape(-1,1)
+
+            # Rescaling (min-max normalization)
+            X = (X - X_min) / (X_max - X_min)
+            X = X * 2 - 1
+
+            # 5. split on windows according to Label.txt
+            loop.set_description("Splitting")
+            Xw, Yw = windows_split(X.values, Y.values, 500, 250)
+
+            # 5.5. Change shape to (len, channels, measures)
+            Xw = Xw.transpose(0, 2, 1)
+
+            # 6. save windows
+            loop.set_description("Saving")
+            dst_dir = join('./data/shl', d[-6:])
+            if not os.path.exists(dst_dir):
+                os.makedirs(dst_dir)
+            np.save(join(dst_dir, x_file.split(".")[0] + ".npy"), Xw)
+            np.save(join(dst_dir, x_file.split(".")[0] + "_labels.npy"), Yw)

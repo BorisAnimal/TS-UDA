@@ -6,37 +6,32 @@ from dataloader import SHL
 
 
 class Encoder(nn.Module):
+
+    @staticmethod
+    def conv(in_ch, out_ch=128, ks=15, stride=10):
+        conv = nn.Conv1d(in_channels=in_ch, out_channels=out_ch, kernel_size=ks, stride=stride)
+        bn = nn.BatchNorm1d(out_ch)
+        act = nn.ReLU()
+        return nn.Sequential(conv, bn, act)
+
     def __init__(self):
         """
         Trying architecture as in Saito's "Asymmetric Tri-training for Unsupervised Domain Adaptation"
         """
         super(Encoder, self).__init__()
-        self.conv1 = nn.Conv1d(in_channels=9, out_channels=64,
-                               kernel_size=15, stride=7)  # TODO: abulate hyperparameters
-        self.pool1 = nn.MaxPool1d(kernel_size=5, stride=2)
-        self.conv2 = nn.Conv1d(in_channels=64, out_channels=256, kernel_size=5, stride=1)
-        self.pool2 = nn.MaxPool1d(kernel_size=3, stride=2)
-        self.conv3 = nn.Conv1d(in_channels=256, out_channels=256, kernel_size=5, stride=1)
-        # self.pool3 = nn.MaxPool1d(kernel_size=3, stride=2)
-        self.fc1 = nn.Linear(2560, 512)
+        self.conv1 = self.conv(9, 128, 15, 10)
+        self.conv2 = self.conv(128, 128, 5, 2)
+        self.conv3 = self.conv(128, 128, 3, 1)
+        self.fc = nn.Sequential(nn.Linear(2688, 512),
+                                nn.BatchNorm1d(512),
+                                nn.ReLU(),
+                                nn.Dropout())
 
     def forward(self, x):
         x = self.conv1(x)
-        x = F.relu(x)
-        x = self.pool1(x)
-
         x = self.conv2(x)
-        x = F.relu(x)
-        x = self.pool2(x)
-
         x = self.conv3(x)
-        x = F.relu(x)
-        # x = self.pool3(x)
-
-        x = self.fc1(x.flatten(start_dim=1))
-        x = F.relu(x)
-
-        return x
+        return self.fc(x.flatten(start_dim=1))
 
 
 class Classifier(nn.Module):
@@ -57,7 +52,8 @@ class Classifier(nn.Module):
 
 if __name__ == '__main__':
     # Init loader
-    source = SHL('./data/shl/220617/Hand_Motion.npy', './data/shl/220617/Hand_Motion_labels.npy')
+    source = SHL('./data/shl-3users-target/220617/Hand_Motion.npy',
+                 './data/shl-3users-target/220617/Hand_Motion_labels.npy')
     source_dataloader = torch.utils.data.DataLoader(dataset=source,
                                                     batch_size=16,
                                                     shuffle=True,

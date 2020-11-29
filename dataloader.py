@@ -68,32 +68,34 @@ def to_dataloaders(train_dataset, val_dataset, batch_size):
 def tt_split(dataset, train_split_ratio):
     train_size = int(train_split_ratio * len(dataset))
     test_size = len(dataset) - train_size
+    torch.random.manual_seed(42)
     train_set, test_set = torch.utils.data.random_split(dataset, [train_size, test_size])
     return train_set, test_set
 
+
 # Little test case
-# if __name__ == '__main__':
-#     source = SHL('./data/shl/220617/Hand_Motion.npy', './data/shl/220617/Hand_Motion_labels.npy')
-#     target = SHL('./data/shl/220617/Hips_Motion.npy', './data/shl/220617/Hips_Motion_labels.npy')
-#
-#     a = source[0]
-#     b = source[1]
-#     print(a[0].shape)
-#     assert a[0].shape == b[0].shape
-#
-#     # Try dataloader
-#     source_dataloader = torch.utils.data.DataLoader(dataset=source,
-#                                                     batch_size=16,
-#                                                     shuffle=True,
-#                                                     num_workers=0)
-#
-#     target_dataloader = torch.utils.data.DataLoader(dataset=target,
-#                                                     batch_size=16,
-#                                                     shuffle=True,
-#                                                     num_workers=0)
-#
-#     a, aa = next(iter(source_dataloader))
-#     print(a.shape, aa.shape)  # torch.Size([16, 9, 500]) torch.Size([16, 1])
-#     b, bb = next(iter(target_dataloader))
-#     assert a.shape == b.shape
-#     assert aa.shape == bb.shape
+if __name__ == '__main__':
+    source = SHL('./data/shl/220617/Hand_Motion.npy', './data/shl/220617/Hand_Motion_labels.npy')
+    target = SHL('./data/shl/220617/Hips_Motion.npy', './data/shl/220617/Hips_Motion_labels.npy')
+
+    a = source[0]
+    b = source[1]
+    print(a[0].shape)
+    assert a[0].shape == b[0].shape
+
+    # Try dataloader
+    source_dataloader = torch.utils.data.DataLoader(dataset=source,
+                                                    batch_size=16,
+                                                    shuffle=True,
+                                                    num_workers=0)
+
+    target_dataloader = torch.utils.data.DataLoader(dataset=target,
+                                                    batch_size=16,
+                                                    shuffle=True,
+                                                    num_workers=0)
+
+    a, aa = next(iter(source_dataloader))
+    print(a.shape, aa.shape)  # torch.Size([16, 9, 500]) torch.Size([16, 1])
+    b, bb = next(iter(target_dataloader))
+    assert a.shape == b.shape
+    assert aa.shape == bb.shape
