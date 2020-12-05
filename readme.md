@@ -1,5 +1,11 @@
 # Time series UDA
 
+# TODO:
+* Add features (paper: Multi-Scale Convolutional Neural Networks for Time Series)
+* Data augmentation?
+* Hyperparameters tuning
+* Data better preprocessing (amplitudes, ARMA)
+
 Here we applied paper [Asymmetric Tri-training for Unsupervised Domain Adaptation](https://arxiv.org/abs/1702.08400)
 to time series [Sussex-Huawei locomotion (SHL)](http://www.shl-dataset.org/) dataset. Idea was to implement identical
 training pipeline as in original paper (image recognition UDA) with modified feature extraction model. We adopted 

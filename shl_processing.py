@@ -76,6 +76,23 @@ def windows_split(x, y, window_size=500, step=250, flatten=False):
     return xw, yw
 
 
+def moving_average(x, w):
+    return np.convolve(x, np.ones(w), 'valid') / w
+
+
+def smooth(x, w):
+    """
+    Smooth by last dimension.
+    :param x: numpy array, data
+    :param w: int, window len
+    :return: numpy array
+    """
+    if len(x.shape) == 1:
+        return moving_average(x, w)
+    else:
+        return np.array([smooth(row, w) for row in x])
+
+
 if __name__ == '__main__':
     # 1. read folders "220617", "260617", ...
     # loop = tqdm(glob('./data/raw/*'))
@@ -107,18 +124,24 @@ if __name__ == '__main__':
             data = pd.concat([X, Y], join='inner', axis=1)
 
             # 7. Set desired frequency 100 -> 50 (Hz)
-            data = data.iloc[::2]
+            # data = data.iloc[::2]
 
             # 2. drop nan data
             data.dropna(inplace=True)
-            X, Y = data[X_col], data[[label_column]]
+            X, Y = data[X_col].values, data[[label_column]].values
 
             # 4. normalize data
+            loop.set_description("Amplitudes")
+            # 4.5 Amplitudes
+            X = X.reshape(-1, 3, 3)
+            X = np.linalg.norm(X, axis=2)
+            X = X.reshape(-1, 3)
+
             loop.set_description("Normalization")
-            X_mean = X.mean(axis=0)  # .reshape(-1,1)
-            X_std = X.std(axis=0)  # .reshape(-1,1)
-            X_min = X.min(axis=0)  # .reshape(-1,1)
-            X_max = X.max(axis=0)  # .reshape(-1,1)
+            X_mean = X.mean(axis=0)
+            X_std = X.std(axis=0)
+            X_min = X.min(axis=0)
+            X_max = X.max(axis=0)
 
             # Rescaling (min-max normalization)
             X = (X - X_min) / (X_max - X_min)
@@ -126,15 +149,27 @@ if __name__ == '__main__':
 
             # 5. split on windows according to Label.txt
             loop.set_description("Splitting")
-            Xw, Yw = windows_split(X.values, Y.values, 500, 250)
+            Xw, Yw = windows_split(X, Y, window_size=500, step=250)
 
             # 5.5. Change shape to (len, channels, measures)
             Xw = Xw.transpose(0, 2, 1)
 
+            Xfreq = smooth(Xw, 10)
+
+            Xw = smooth(Xw, 3)
+
+            scalers = [2, 3, 5]
+            Xscale = np.concatenate([Xw[:, :, ::s] for s in scalers], axis=2)
+
             # 6. save windows
             loop.set_description("Saving")
-            dst_dir = join('./data/shl', d[-6:])
+            dst_dir = join('./data/shl-source', d[-6:])
             if not os.path.exists(dst_dir):
                 os.makedirs(dst_dir)
-            np.save(join(dst_dir, x_file.split(".")[0] + ".npy"), Xw)
+            # print("Writing Xw with shape:", Xw.shape)
+            prefix = join(dst_dir, x_file.split(".")[0])
+            np.save(prefix + ".npy", Xw)
+            np.save(prefix + "_scaled.npy", Xscale)
+            np.save(prefix + "_freq.npy", Xfreq)
+            # print("Writing Yw with shape:", Yw.shape)
             np.save(join(dst_dir, x_file.split(".")[0] + "_labels.npy"), Yw)
