@@ -1,10 +1,12 @@
 # Time series UDA
 
-# TODO:
-* Add features (paper: Multi-Scale Convolutional Neural Networks for Time Series)
-* Data augmentation?
-* Hyperparameters tuning
-* Data better preprocessing (amplitudes, ARMA)
+## Delivery \#2 news
+
+After better preprocessing:
+Same model 35.39 -> 42.63
+
+## Delivery \#1
+
 
 Here we applied paper [Asymmetric Tri-training for Unsupervised Domain Adaptation](https://arxiv.org/abs/1702.08400)
 to time series [Sussex-Huawei locomotion (SHL)](http://www.shl-dataset.org/) dataset. Idea was to implement identical

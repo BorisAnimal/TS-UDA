@@ -24,7 +24,7 @@ def accuracy(predicted_labels, true_labels):
 
 class Solver:
     def __init__(self):
-        self.train_lr = 1e-4
+        self.train_lr = 1e-5
         self.num_classes = 9
         self.clf_target = Classifier().cuda()
         self.clf2 = Classifier().cuda()
@@ -77,6 +77,15 @@ class Solver:
             # refresh
             if (step + 1) % source_per_epoch == 0:
                 source_iter = iter(source_loader)
+
+            if step // source_per_epoch == 2:
+                for param_group in pretrain_optimizer.param_groups:
+                    param_group['lr'] *= 0.1
+
+            if step // source_per_epoch == 5:
+                for param_group in pretrain_optimizer.param_groups:
+                    param_group['lr'] *= 0.1
+
             # load the data
             source, s_labels = next(source_iter)
             source, s_labels = self.to_var(source), self.to_var(s_labels).long().squeeze()
@@ -165,6 +174,8 @@ class Solver:
         acs1 = []
         acs2 = []
         acs3 = []
+        self.acs_t_source = []
+        self.acs_t_target = []
 
         for epoch in range(epochs):
             source_iter = iter(source_loader)
@@ -174,22 +185,23 @@ class Solver:
             target_per_epoch = len(target_iter)
             if epoch == 0:
                 print("source_per_epoch, target_per_epoch:", source_per_epoch, target_per_epoch)
+            if epoch == 1:
+                for param_group in optimizer1.param_groups:
+                    param_group['lr'] *= 0.1
+
+                for param_group in optimizer2.param_groups:
+                    param_group['lr'] *= 0.1
+
             if epoch == 3:
                 for param_group in optimizer1.param_groups:
-                    param_group['lr'] = lr * 0.1
+                    param_group['lr'] *= 0.1
 
                 for param_group in optimizer2.param_groups:
-                    param_group['lr'] = lr * 0.1
-            if epoch == 6:
-                for param_group in optimizer1.param_groups:
-                    param_group['lr'] = lr * 0.01
-
-                for param_group in optimizer2.param_groups:
-                    param_group['lr'] = lr * 0.01
+                    param_group['lr'] *= 0.1
 
             # ============ Pseudo-labeling  ============ #
             # Fill candidates
-            target_candidates = self.pseudo_labeling(target_loader, pool_size=4000 * epoch)
+            target_candidates = self.pseudo_labeling(target_loader, pool_size=4000 * (1 + epoch))
             print("Target candidates len:", len(target_candidates))
             if len(target_candidates) <= 1:
                 target_candidates = self.pseudo_labeling(target_loader, threshold=0.0)
@@ -243,6 +255,8 @@ class Solver:
                 acs2.append(accuracy(y2s_hat, s_labels).item())
                 acs3.append(accuracy(y_target_hat, t_labels).item())
 
+                self.acs_t_source.append(accuracy(y_target_hat, t_labels).item())
+
                 if (step + 1) % log_pre == 0:
                     acc = self.eval(target_val_loader, self.clf_target)
                     print("Step %d | Val data target classifier acc=%.2f" % (step, acc))
@@ -251,6 +265,8 @@ class Solver:
                     acs1 = []
                     acs2 = []
                     acs3 = []
+
+                    self.acs_t_target.append(acc)
 
                     # acc1 = self.eval(source_val_loader, self.clf1)
                     # print("        | Val data source classifier1 acc=%.2f" % acc1)
@@ -322,7 +338,7 @@ class Solver:
                                            shuffle=True,
                                            num_workers=0)
 
-    def confusion_matrix(self, loader, classifier):
+    def confusion_matrix(self, loader, classifier, title=None):
 
         labels = []
         preds = []
@@ -342,6 +358,9 @@ class Solver:
         plt.figure(figsize=(10, 7))
         sn.heatmap(df_cm, annot=True)
 
+        if title:
+            plt.title(title)
+
         plt.show()
 
 
@@ -354,25 +373,39 @@ if __name__ == '__main__':
     solver = Solver()
     solver.pretrain(source_loader=source_train_loader,
                     target_val_loader=target_val_loader,
-                    pretrain_epochs=10)
-    solver.save_models()
+                    pretrain_epochs=7)
 
-    solver.confusion_matrix(target_val_loader, solver.clf_target)
+    solver.save_models()
+    print("Accuracy before UDA:")
+    acc_before = solver.eval(target_val_loader, solver.clf_target)
+    print("clf_t", acc_before)
+    print("clf1", solver.eval(source_val_loader, solver.clf1))
+    print("clf2", solver.eval(source_val_loader, solver.clf2))
+    solver.confusion_matrix(target_val_loader, solver.clf_target, str(acc_before))
 
     solver.load_models()
-
-    print("Accuracy before UDA:")
-    print("clf_t", solver.eval(target_val_loader, solver.clf_target))
-
-    print("clf1", solver.eval(source_val_loader, solver.clf1))
-
-    print("clf2", solver.eval(source_val_loader, solver.clf2))
 
     solver.train(source_train_loader,
                  source_val_loader,
                  target_train_loader,
-                 target_val_loader, epochs=20)
+                 target_val_loader, epochs=5)
     print("Final accuracy:")
-    print(solver.eval(target_val_loader, solver.clf_target))
+    acc_after = solver.eval(target_val_loader, solver.clf_target)
+    print(acc_after)
 
-    solver.confusion_matrix(target_val_loader, solver.clf_target)
+    solver.confusion_matrix(target_val_loader, solver.clf_target, str(acc_after))
+
+    plt.plot(solver.acs_t_source)
+    plt.title("Target classifier accuracy during UDA training (source data)")
+    plt.xlabel("iter")
+    plt.ylabel("accuracy")
+    plt.show()
+
+    plt.plot(solver.acs_t_target)
+    plt.title("Target classifier accuracy during UDA training (target data)")
+    plt.xlabel("iter")
+    plt.ylabel("accuracy")
+    plt.show()
+
+    torch.save(solver.clf_target, 'clf_t_uda.pth')
+    torch.save(solver.encoder, 'encoder_uda.pth')

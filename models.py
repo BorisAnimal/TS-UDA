@@ -19,11 +19,11 @@ class Encoder(nn.Module):
         Trying architecture as in Saito's "Asymmetric Tri-training for Unsupervised Domain Adaptation"
         """
         super(Encoder, self).__init__()
-        self.conv1 = self.conv(9, 128, 15, 10)
-        self.conv2 = self.conv(128, 128, 5, 2)
-        self.conv3 = self.conv(128, 128, 3, 1)
-        self.fc = nn.Sequential(nn.Linear(2688, 512),
-                                nn.BatchNorm1d(512),
+        self.conv1 = self.conv(3, 128, 15, 10)
+        self.conv2 = self.conv(128, 128, 15, 10)
+        self.conv3 = self.conv(128, 128, 3, 2)
+        self.fc = nn.Sequential(nn.Linear(768, 256),
+                                nn.BatchNorm1d(256),
                                 nn.ReLU(),
                                 nn.Dropout())
 
@@ -36,7 +36,7 @@ class Encoder(nn.Module):
 
 class Classifier(nn.Module):
 
-    def __init__(self, in_shape=512, out_shape=9):
+    def __init__(self, in_shape=256, out_shape=9):
         super(Classifier, self).__init__()
         self.fc1 = nn.Linear(in_shape, 128)
         self.fc2 = nn.Linear(128, out_shape)
@@ -52,16 +52,15 @@ class Classifier(nn.Module):
 
 if __name__ == '__main__':
     # Init loader
-    source = SHL('./data/shl-3users-target/220617/Hand_Motion.npy',
-                 './data/shl-3users-target/220617/Hand_Motion_labels.npy')
+    source = SHL('./data/shl-source/220617/', 'Hips')
     source_dataloader = torch.utils.data.DataLoader(dataset=source,
                                                     batch_size=16,
                                                     shuffle=True,
                                                     num_workers=0)
-    a, aa = next(iter(source_dataloader))
+    a, _, _, aa = next(iter(source_dataloader))
     print("Tensor from dataloader:", a.shape)
     # Init model
-    net = nn.Conv1d(in_channels=9, out_channels=16, kernel_size=15, stride=7)
+    net = nn.Conv1d(in_channels=3, out_channels=16, kernel_size=15, stride=7)
 
     # Try forward batch
     a = a.float()

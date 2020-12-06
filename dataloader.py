@@ -6,22 +6,26 @@ from glob2 import glob
 
 
 class SHL(data.Dataset):
-    def __init__(self, x_path, y_path):
-        self.x = np.load(x_path)
-        self.y = np.load(y_path).astype(np.long)
+    def __init__(self, folder, modality):
+        self.x = np.load(join(folder, '{}_Motion.npy'.format(modality)))
+        self.x_freq = np.load(join(folder, '{}_Motion_freq.npy'.format(modality)))
+        self.x_scaled = np.load(join(folder, '{}_Motion_scaled.npy'.format(modality)))
+        self.y = np.load(join(folder, '{}_Motion_labels.npy'.format(modality))).astype(np.long)
         assert len(self.x) == len(self.y), "Length of X and Y doesn't match"
+        assert len(self.x) == len(self.x_freq) == len(self.x_scaled)
 
     def __len__(self):
         return len(self.x)
 
     def __getitem__(self, item):
         """
-        TODO: try feature expansion (downsampling, frequency sampling) - https://arxiv.org/pdf/1603.06995.pdf
+        feature expansion (downsampling, frequency sampling) - https://arxiv.org/pdf/1603.06995.pdf
 
         :param item: index
-        :return: (x,y) x - 2D array [features, channels]
+        :return: (x, x_freq, x_scaled, y); x, x_freq, x_scaled - 2D array [channels, features]
         """
-        return self.x[item], self.y[item]
+        ret = np.concatenate([self.x[item], self.x_freq[item], self.x_scaled[item]], axis=1)
+        return ret, self.y[item]
 
 
 def shl_loaders(train_split_ratio=0.7, batch_size=32):
@@ -34,12 +38,10 @@ def shl_loaders(train_split_ratio=0.7, batch_size=32):
     target_place = 'Torso'
 
     source_datasets = [
-        SHL(join(f, source_place + "_Motion.npy"), join(f, source_place + "_Motion_labels.npy"))
-        for f in source_folders
+        SHL(f, source_place) for f in source_folders
     ]
     target_datasets = [
-        SHL(join(f, target_place + "_Motion.npy"), join(f, target_place + "_Motion_labels.npy"))
-        for f in target_folders
+        SHL(f, target_place) for f in target_folders
     ]
 
     target_train_loader, target_val_loader = to_dataloaders(*tt_split(torch.utils.data.ConcatDataset(target_datasets),
@@ -75,8 +77,8 @@ def tt_split(dataset, train_split_ratio):
 
 # Little test case
 if __name__ == '__main__':
-    source = SHL('./data/shl/220617/Hand_Motion.npy', './data/shl/220617/Hand_Motion_labels.npy')
-    target = SHL('./data/shl/220617/Hips_Motion.npy', './data/shl/220617/Hips_Motion_labels.npy')
+    source = SHL('./data/shl-source/220617/', 'Hips')
+    target = SHL('./data/shl-3users-target/220617/', 'Hand')
 
     a = source[0]
     b = source[1]
@@ -94,8 +96,12 @@ if __name__ == '__main__':
                                                     shuffle=True,
                                                     num_workers=0)
 
-    a, aa = next(iter(source_dataloader))
-    print(a.shape, aa.shape)  # torch.Size([16, 9, 500]) torch.Size([16, 1])
-    b, bb = next(iter(target_dataloader))
+    # a, _, _, aa = next(iter(source_dataloader))
+    # b, _, _, bb = next(iter(target_dataloader))
+    a,  aa = next(iter(source_dataloader))
+    b,  bb = next(iter(target_dataloader))
+
+    print(a.shape, aa.shape)
+
     assert a.shape == b.shape
     assert aa.shape == bb.shape
