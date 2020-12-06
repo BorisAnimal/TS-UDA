@@ -12,6 +12,7 @@ class Encoder(nn.Module):
         conv = nn.Conv1d(in_channels=in_ch, out_channels=out_ch, kernel_size=ks, stride=stride)
         bn = nn.BatchNorm1d(out_ch)
         act = nn.ReLU()
+        pool = nn.MaxPool1d(3, stride=2)
         return nn.Sequential(conv, bn, act)
 
     def __init__(self):
@@ -24,8 +25,9 @@ class Encoder(nn.Module):
         self.conv_xs = self.conv(3, 256, 15, 10)
 
         self.conv1 = self.conv(256, 256, 15, 10)
+        self.conv2 = self.conv(256, 256, 5, 2)
 
-        self.fc = nn.Sequential(nn.Linear(3584, 256),
+        self.fc = nn.Sequential(nn.Linear(1280, 256),
                                 nn.BatchNorm1d(256),
                                 nn.ReLU(),
                                 nn.Dropout())
@@ -38,6 +40,7 @@ class Encoder(nn.Module):
         x = torch.cat([x, xf, xs], 2)
 
         x = self.conv1(x)
+        x = self.conv2(x)
 
         return self.fc(x.flatten(start_dim=1))
 

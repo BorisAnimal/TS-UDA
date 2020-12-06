@@ -4,7 +4,8 @@
 
 After better preprocessing:
 Same model 35.39 -> 38.92
-Model from paper 
+Model from paper 32.46 -> 38.39
+Model from paper + pooling 32.81 -> 36.24
 
 ## Delivery \#1
 

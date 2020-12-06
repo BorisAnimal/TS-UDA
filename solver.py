@@ -70,7 +70,6 @@ class Solver:
                         map(lambda i: list(i.parameters()),
                             [self.encoder, self.clf1, self.clf2, self.clf_target]))
         pretrain_optimizer = optim.Adam(params, lr)
-        accuracies = []
 
         for step in range(pretrain_iters + 1):
             # ============ Initialization ============#
@@ -153,7 +152,7 @@ class Solver:
                 val1, idx1 = torch.max(y1, 0)
                 val2, idx2 = torch.max(y2, 0)
                 if idx1 == idx2 and max(val1, val2) >= threshold:
-                    pool.append((x[i].cpu(), idx1.cpu().item()))
+                    pool.append((x[i].cpu(), x2[i].cpu(), x3[i].cpu(), idx1.cpu().item()))
                 if len(pool) >= pool_size:
                     return pool
         return pool
@@ -186,6 +185,7 @@ class Solver:
             target_iter = iter(target_loader)
 
             source_per_epoch = len(source_iter)
+            iters = source_per_epoch * epochs
             target_per_epoch = len(target_iter)
             if epoch == 0:
                 print("source_per_epoch, target_per_epoch:", source_per_epoch, target_per_epoch)
@@ -196,7 +196,7 @@ class Solver:
                 for param_group in optimizer2.param_groups:
                     param_group['lr'] *= 0.1
 
-            if epoch == 3:
+            if epoch == 2:
                 for param_group in optimizer1.param_groups:
                     param_group['lr'] *= 0.1
 
@@ -212,6 +212,7 @@ class Solver:
                 print("Target candidates len:", len(target_candidates))
             target_candidates_loader = self.wrap_to_loader(target_candidates,
                                                            batch_size=target_loader.batch_size)
+
             for step, (target, t2, t3, t_labels) in enumerate(target_candidates_loader):
                 if (step + 1) % source_per_epoch == 0:
                     source_iter = iter(source_loader)
@@ -220,10 +221,6 @@ class Solver:
                 source, s_labels = self.to_var(source), self.to_var(s_labels).long().squeeze()
                 s2, s3 = self.to_var(s2), self.to_var(s3)
                 source = [source, s2, s3]
-
-                target, t_labels = self.to_var(target), self.to_var(t_labels).long().squeeze()
-                t2, t3 = self.to_var(t2), self.to_var(t3)
-                target = [target, t2, t3]
 
                 # ============ Train F, F1, F2  ============ #
                 optimizer1.zero_grad()
@@ -237,6 +234,10 @@ class Solver:
 
                 # Target data
                 # forward
+                target, t_labels = self.to_var(target), self.to_var(t_labels).long().squeeze()
+                t2, t3 = self.to_var(t2), self.to_var(t3)
+                target = [target, t2, t3]
+
                 features = self.encoder(*target)
                 y1t_hat = self.clf1(features)
                 y2t_hat = self.clf2(features)
@@ -342,7 +343,7 @@ class Solver:
         :return:
         """
         assert len(target_candidates) > 0
-        tmp = target_candidates  # CondomDataset(target_candidates)
+        tmp = target_candidates
         return torch.utils.data.DataLoader(dataset=tmp,
                                            batch_size=batch_size,
                                            shuffle=True,
