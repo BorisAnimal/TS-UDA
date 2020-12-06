@@ -19,18 +19,26 @@ class Encoder(nn.Module):
         Trying architecture as in Saito's "Asymmetric Tri-training for Unsupervised Domain Adaptation"
         """
         super(Encoder, self).__init__()
-        self.conv1 = self.conv(3, 128, 15, 10)
-        self.conv2 = self.conv(128, 128, 15, 10)
-        self.conv3 = self.conv(128, 128, 3, 2)
-        self.fc = nn.Sequential(nn.Linear(768, 256),
+        self.conv_x = self.conv(3, 256, 15, 10)
+        self.conv_xf = self.conv(3, 256, 15, 10)
+        self.conv_xs = self.conv(3, 256, 15, 10)
+
+        self.conv1 = self.conv(256, 256, 15, 10)
+
+        self.fc = nn.Sequential(nn.Linear(3584, 256),
                                 nn.BatchNorm1d(256),
                                 nn.ReLU(),
                                 nn.Dropout())
 
-    def forward(self, x):
+    def forward(self, x, xf, xs):
+        x = self.conv_x(x)  # F.max_pool1d()
+        xf = self.conv_xf(xf)
+        xs = self.conv_xs(xs)
+
+        x = torch.cat([x, xf, xs], 2)
+
         x = self.conv1(x)
-        x = self.conv2(x)
-        x = self.conv3(x)
+
         return self.fc(x.flatten(start_dim=1))
 
 
@@ -57,13 +65,15 @@ if __name__ == '__main__':
                                                     batch_size=16,
                                                     shuffle=True,
                                                     num_workers=0)
-    a, _, _, aa = next(iter(source_dataloader))
+    a, a2, a3, aa = next(iter(source_dataloader))
     print("Tensor from dataloader:", a.shape)
     # Init model
     net = nn.Conv1d(in_channels=3, out_channels=16, kernel_size=15, stride=7)
 
     # Try forward batch
     a = a.float()
+    a2 = a2.float()
+    a3 = a3.float()
     res = net(a)
     print("Result of Conv1d:", res.shape)
 
@@ -72,7 +82,7 @@ if __name__ == '__main__':
     print("Result of MaxPool1d:", res.shape)
 
     net = Encoder()
-    res = net(a)
+    res = net(a, a2, a3)
     print("Result of Encoder:", res.shape)
 
     clf = Classifier()

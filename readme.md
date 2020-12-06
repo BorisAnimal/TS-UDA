@@ -3,7 +3,8 @@
 ## Delivery \#2 news
 
 After better preprocessing:
-Same model 35.39 -> 42.63
+Same model 35.39 -> 38.92
+Model from paper 
 
 ## Delivery \#1
 

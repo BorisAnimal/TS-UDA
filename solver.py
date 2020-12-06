@@ -87,13 +87,15 @@ class Solver:
                     param_group['lr'] *= 0.1
 
             # load the data
-            source, s_labels = next(source_iter)
+            source, s2, s3, s_labels = next(source_iter)
             source, s_labels = self.to_var(source), self.to_var(s_labels).long().squeeze()
+            s2, s3 = self.to_var(s2), self.to_var(s3)
+            source = [source, s2, s3]
 
             # ============ Training ============ #
             pretrain_optimizer.zero_grad()
             # forward
-            features = self.encoder(source)
+            features = self.encoder(*source)
             y1_hat = self.clf1(features)
             y2_hat = self.clf2(features)
             y_target_hat = self.clf_target(features)
@@ -109,7 +111,7 @@ class Solver:
             # ============ Validation ============ #
             if (step + 1) % log_pre == 0:
                 with torch.no_grad():
-                    source_val_features = self.encoder(source)
+                    source_val_features = self.encoder(*source)
                     c_source1 = self.clf1(source_val_features)
                     c_source2 = self.clf2(source_val_features)
                     c_target = self.clf_target(source_val_features)
@@ -137,11 +139,13 @@ class Solver:
         :return:
         """
         pool = []  # x, y_pseudo
-        for x, _ in loader:
+        for x, x2, x3, _ in loader:
             batch_size = x.shape[0]
             x = self.to_var(x)
-            ys1 = F.softmax(self.clf1(self.encoder(x)))
-            ys2 = F.softmax(self.clf2(self.encoder(x)))
+            x2 = self.to_var(x2)
+            x3 = self.to_var(x3)
+            ys1 = F.softmax(self.clf1(self.encoder(x, x2, x3)))
+            ys2 = F.softmax(self.clf2(self.encoder(x, x2, x3)))
             # _, pseudo_labels = torch.max(pseudo_labels, 1)
             for i in range(batch_size):
                 y1 = ys1[i]
@@ -208,19 +212,24 @@ class Solver:
                 print("Target candidates len:", len(target_candidates))
             target_candidates_loader = self.wrap_to_loader(target_candidates,
                                                            batch_size=target_loader.batch_size)
-            for step, (target, t_labels) in enumerate(target_candidates_loader):
+            for step, (target, t2, t3, t_labels) in enumerate(target_candidates_loader):
                 if (step + 1) % source_per_epoch == 0:
                     source_iter = iter(source_loader)
 
-                source, s_labels = next(source_iter)
-                target, t_labels = self.to_var(target), self.to_var(t_labels).long().squeeze()
+                source, s2, s3, s_labels = next(source_iter)
                 source, s_labels = self.to_var(source), self.to_var(s_labels).long().squeeze()
+                s2, s3 = self.to_var(s2), self.to_var(s3)
+                source = [source, s2, s3]
+
+                target, t_labels = self.to_var(target), self.to_var(t_labels).long().squeeze()
+                t2, t3 = self.to_var(t2), self.to_var(t3)
+                target = [target, t2, t3]
 
                 # ============ Train F, F1, F2  ============ #
                 optimizer1.zero_grad()
                 # Source data
                 # forward
-                features = self.encoder(source)
+                features = self.encoder(*source)
                 y1s_hat = self.clf1(features)
                 y2s_hat = self.clf2(features)
                 # loss
@@ -228,7 +237,7 @@ class Solver:
 
                 # Target data
                 # forward
-                features = self.encoder(target)
+                features = self.encoder(*target)
                 y1t_hat = self.clf1(features)
                 y2t_hat = self.clf2(features)
                 # loss
@@ -242,7 +251,7 @@ class Solver:
                 optimizer2.zero_grad()
                 # Target data
                 # forward
-                y_target_hat = self.clf_target(self.encoder(target))
+                y_target_hat = self.clf_target(self.encoder(*target))
                 # loss
                 loss_target_class = self.loss([y_target_hat], t_labels)
                 # one step
@@ -300,11 +309,12 @@ class Solver:
         self.encoder.eval()
         classifier.eval()
 
-        for x, y_true in loader:
+        for x, x2, x3, y_true in loader:
             # forward pass: compute predicted outputs by passing inputs to the model
             x, y_true = self.to_var(x), self.to_var(y_true).long().squeeze()
+            x2, x3 = self.to_var(x2), self.to_var(x3)
 
-            y_hat = classifier(self.encoder(x))
+            y_hat = classifier(self.encoder(x, x2, x3))
             _, pred = torch.max(y_hat, 1)
             correct = np.squeeze(pred.eq(y_true.data.view_as(pred)))
             # calculate test accuracy for each object class
@@ -342,11 +352,12 @@ class Solver:
 
         labels = []
         preds = []
-        for x, y_true in loader:
+        for x, x2, x3, y_true in loader:
             labels += list(y_true.cpu().detach().numpy().flatten())
             x, y_true = self.to_var(x), self.to_var(y_true).long().squeeze()
+            x2, x3 = self.to_var(x2), self.to_var(x3)
 
-            y_hat = classifier(self.encoder(x))
+            y_hat = classifier(self.encoder(x, x2, x3))
             _, pred = torch.max(y_hat, 1)
 
             preds += list(pred.cpu().detach().numpy().flatten())

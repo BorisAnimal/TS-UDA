@@ -24,8 +24,9 @@ class SHL(data.Dataset):
         :param item: index
         :return: (x, x_freq, x_scaled, y); x, x_freq, x_scaled - 2D array [channels, features]
         """
-        ret = np.concatenate([self.x[item], self.x_freq[item], self.x_scaled[item]], axis=1)
-        return ret, self.y[item]
+        # ret = np.concatenate([self.x[item], self.x_freq[item], self.x_scaled[item]], axis=1)
+        # return ret, self.y[item]
+        return self.x[item], self.x_freq[item], self.x_scaled[item], self.y[item]
 
 
 def shl_loaders(train_split_ratio=0.7, batch_size=32):
@@ -96,10 +97,10 @@ if __name__ == '__main__':
                                                     shuffle=True,
                                                     num_workers=0)
 
-    # a, _, _, aa = next(iter(source_dataloader))
-    # b, _, _, bb = next(iter(target_dataloader))
-    a,  aa = next(iter(source_dataloader))
-    b,  bb = next(iter(target_dataloader))
+    a, _, _, aa = next(iter(source_dataloader))
+    b, _, _, bb = next(iter(target_dataloader))
+    # a,  aa = next(iter(source_dataloader))
+    # b,  bb = next(iter(target_dataloader))
 
     print(a.shape, aa.shape)
 
