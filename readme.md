@@ -3,9 +3,12 @@
 ## Delivery \#2 news
 
 After better preprocessing:
-Same model 35.39 -> 38.92
-Model from paper 32.46 -> 38.39
-Model from paper + pooling 32.81 -> 36.24
+
+| |Before UDA (pretrained on source) | After UDA |
+|---|---|---|
+|Same model| 35.39 | 38.92 |
+|Model from paper| 32.46 | 38.39|
+|Model from paper + pooling |32.81 | 36.24|
 
 ## Delivery \#1
 
@@ -22,6 +25,7 @@ However, we got results not as well as in CV UDA:
 |---|---|
 |29.3% | 36.1% (Naive CNN feature extractor)|
 |29.0% | 33.3% (extractor from [paper](http://acm.mementodepot.org/pubs/proceedings/acmconferences_3267305/3267305/3267305.3267531/3267305.3267531.pdf))|
+
 
 The quality of models trained on source are trustful, because they achieved accuracy around 84.7% - result close to
 [paper's](http://acm.mementodepot.org/pubs/proceedings/acmconferences_3267305/3267305/3267305.3267531/3267305.3267531.pdf) results when used with CNN architecture (86.6% mentioned). 
